@@ -1,14 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#7ec8e3" />
-  <title>Harvest Tap</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>Harvest Tap</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;font-family:system-ui,sans-serif}
+#app{position:relative;width:100%;height:100%;background:linear-gradient(#5eb3d6 0%,#9ad4ea 38%,#cfe98a 62%,#8bc34a 78%,#6b4220 100%)}
+#hud{position:absolute;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;display:flex;justify-content:space-between;z-index:20}
+.pile{background:rgba(255,255,255,.9);border-radius:999px;padding:8px 14px;font-size:28px;font-weight:800}
+#again{border:0;background:#fff;width:48px;height:48px;border-radius:50%;font-size:24px}
+#field{position:absolute;left:4%;right:4%;top:20%;bottom:26%;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(4,1fr);gap:8px;z-index:5}
+.stalk{display:flex;align-items:flex-end;justify-content:center}
+.plant{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;transform-origin:bottom center;transition:.18s}
+.stalk.cut .plant{transform:rotate(78deg);opacity:0}
+.ear{width:28px;height:48px;background:linear-gradient(#f7e07a,#e0b22a);border-radius:12px}
+.stem{width:7px;height:40%;background:#3d8b3d}
+#combine-wrap{position:absolute;bottom:8%;left:4%;width:42vw;max-width:190px;z-index:8;transition:left .25s linear}
+.ground{position:absolute;bottom:0;left:0;right:0;height:11%;background:#6b4220}
+#start,#win{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(40,80,30,.3);padding:24px}
+#win{display:none}
+.card{background:#fffef6;border-radius:28px;padding:28px 22px;max-width:340px;width:88%;text-align:center}
+.go{border:0;background:#4caf50;color:#fff;font-size:26px;font-weight:800;padding:16px;border-radius:18px;width:100%}
+.fill-bar{position:absolute;bottom:3%;left:18%;right:18%;height:10px;background:rgba(255,255,255,.45);border-radius:99px;z-index:9}
+.fill-bar>i{display:block;height:100%;width:0;background:#f4c430;border-radius:99px}
+</style>
 </head>
 <body>
-<p>Loading game file next...</p>
+<div id="app">
+<div id="hud"><div class="pile">🌽 <span id="count">0</span></div><button id="again" type="button">↻</button></div>
+<div id="field"></div>
+<div id="combine-wrap"><svg viewBox="0 0 220 100" width="100%"><rect x="4" y="58" width="70" height="16" rx="8" fill="#c9a227"/><rect x="90" y="28" width="92" height="46" rx="8" fill="#e53935"/><rect x="96" y="34" width="38" height="22" rx="4" fill="#81d4fa"/><path d="M178 30 L214 38 L214 72 L178 72 Z" fill="#ef6c00"/><circle cx="48" cy="84" r="14" fill="#333"/><circle cx="128" cy="82" r="18" fill="#222"/><circle cx="188" cy="84" r="14" fill="#333"/></svg></div>
+<div class="ground"></div>
+<div class="fill-bar"><i id="fill"></i></div>
+<div id="start"><div class="card"><h1>🌽 Harvest Tap</h1><p>Tap the corn. The combine speeds up when you tap fast.</p><button class="go" id="start-btn" type="button">Start harvest</button></div></div>
+<div id="win"><div class="card"><h1>Barn is full!</h1><p id="win-msg"></p><button class="go" id="replay-btn" type="button">Harvest again</button></div></div>
+</div>
+<script>
+const TOTAL=20,field=document.getElementById('field'),countEl=document.getElementById('count'),fillEl=document.getElementById('fill'),wrap=document.getElementById('combine-wrap'),startScreen=document.getElementById('start'),winScreen=document.getElementById('win');
+let harvested=0,playing=false,combineX=4,speed=.12,raf=0,audioCtx=null;
+function makeField(){field.innerHTML='';harvested=0;combineX=4;speed=.12;countEl.textContent='0';fillEl.style.width='0%';wrap.style.left=combineX+'%';for(let i=0;i<TOTAL;i++){const c=document.createElement('div');c.className='stalk';c.innerHTML='<div class="plant"><div class="ear"></div><div class="stem"></div></div>';c.addEventListener('pointerdown',e=>{e.preventDefault();tap(c)});field.appendChild(c)}}
+function tap(c){if(!playing||c.classList.contains('cut'))return;ensureAudio();c.classList.add('cut');harvested++;countEl.textContent=harvested;fillEl.style.width=(harvested/TOTAL*100)+'%';speed=Math.min(.55,speed+.05);chop();if(harvested>=TOTAL)finish()}
+function tick(){if(!playing)return;speed=Math.max(.06,speed-.002);combineX+=speed*.35;if(combineX>58)combineX=4+(harvested/TOTAL)*50;wrap.style.left=combineX+'%';raf=requestAnimationFrame(tick)}
+function finish(){playing=false;cancelAnimationFrame(raf);document.getElementById('win-msg').textContent='You cut '+harvested+' corn!';winScreen.style.display='flex'}
+function startGame(){ensureAudio();startScreen.style.display='none';winScreen.style.display='none';makeField();playing=true;cancelAnimationFrame(raf);raf=requestAnimationFrame(tick)}
+document.getElementById('start-btn').onclick=startGame;document.getElementById('replay-btn').onclick=startGame;document.getElementById('again').onclick=startGame;
+function ensureAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext);if(audioCtx.state==='suspended')audioCtx.resume()}
+function chop(){if(!audioCtx)return;const t=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sawtooth';o.frequency.setValueAtTime(180,t);o.frequency.exponentialRampToValueAtTime(90,t+.07);g.gain.setValueAtTime(.08,t);g.gain.exponentialRampToValueAtTime(.001,t+.08);o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.1)}
+makeField();
+</script>
 </body>
 </html>
